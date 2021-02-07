@@ -88,14 +88,17 @@ def emit_env
   end
 end
 
-def fetch(fpath, &block)
+def fetch(fpath, max_age_s=24 * 3600, &block)
 
-  if s = (File.read(fpath) rescue nil)
-    s
-  else
-    s = block.call
-    File.open(fpath, 'wb') { |f| f.write(s) }
-    s
-  end
+  s =
+    File.exist?(fpath) &&
+    (Time.now - File.mtime(fpath) < max_age_s) &&
+    (File.read(fpath) rescue nil)
+  return s if s
+
+  s = block.call
+  File.open(fpath, 'wb') { |f| f.write(s) }
+
+  s
 end
 
