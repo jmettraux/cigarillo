@@ -22,6 +22,7 @@ def header(k, v)
   k1 =
     case k
     when :type then 'Content-Type'
+    when :cache then 'Cache-Control'
     when :length then 'Content-Length'
     else k
     end
