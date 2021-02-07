@@ -56,25 +56,6 @@ def flush
   exit 0
 end
 
-def dump_env
-
-  puts
-  ENV.each do |k, v|
-    puts "* #{k}: #{v.inspect}"
-  end
-end
-
-def fetch(fpath, &block)
-
-  if s = (File.read(fpath) rescue nil)
-    s
-  else
-    s = block.call
-    File.open(fpath, 'wb') { |f| f.write(s) }
-    s
-  end
-end
-
 def halt(code, message=nil, &block)
 
   message =
@@ -96,5 +77,24 @@ def halt(code, message=nil, &block)
   print body
 
   exit 0
+end
+
+def emit_env
+
+  emit ''
+  ENV.each do |k, v|
+    emit "* #{k}: #{v.inspect}"
+  end
+end
+
+def fetch(fpath, &block)
+
+  if s = (File.read(fpath) rescue nil)
+    s
+  else
+    s = block.call
+    File.open(fpath, 'wb') { |f| f.write(s) }
+    s
+  end
 end
 
