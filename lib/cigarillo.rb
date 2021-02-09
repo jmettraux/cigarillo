@@ -32,17 +32,25 @@ end
 
 def emit(s)
 
-  RESPONSE[:body] << s.to_s
+  if s.is_a?(IO)
+    RESPONSE[:file] = s
+  else
+    RESPONSE[:body] << s.to_s
+  end
 end
 
 def flush
 
   flush_error($!, $@) if $!
 
-  body = RESPONSE[:body].join("\n")
-
-  header :length, body.bytesize
-  #header 'Connection', 'close'
+  f = RESPONSE[:file]
+    #
+  if f
+    header :length, f.size
+  else
+    body = RESPONSE[:body].join("\n")
+    header :length, body.bytesize
+  end
 
   c = RESPONSE[:status]
 
@@ -57,11 +65,21 @@ def flush
     puts "x-#{k}: #{v}" if k == 'Content-Length'
   end
   puts "x-cgi: cigarillo #{CIG_VERSION}"
+  puts "x-file: #{ !! RESPONSE[:file]}"
   #puts "x-error: #{$!.inspect}" if $!
   #puts "x-error-at: #{caller.inspect}" if $!
 
   puts
-  print body
+
+  if f
+    IO.copy_stream(f, $stdout)
+  else
+    print body
+  end
+
+ensure
+
+  RESPONSE[:file].close rescue nil
 end
 
 def flush_error(err, trc)
@@ -79,6 +97,7 @@ def flush_error(err, trc)
   b << ''
   b.concat(trc)
 
+  RESPONSE[:file] = nil
   RESPONSE[:body] = b
 end
 
@@ -105,11 +124,11 @@ end
 
 def fetch(fpath, max_age_s=24 * 3600, &block)
 
-  s =
+  f =
     File.exist?(fpath) &&
     (Time.now - File.mtime(fpath) < max_age_s) &&
-    (File.read(fpath) rescue nil)
-  return s if s
+    (File.open(fpath) rescue nil)
+  return f if f
 
   s = block.call
   File.open(fpath, 'wb') { |f| f.write(s) }
