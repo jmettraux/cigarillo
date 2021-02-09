@@ -37,45 +37,60 @@ end
 
 def flush
 
+  flush_error($!, $@) if $!
+
   body = RESPONSE[:body].join("\n")
 
   header :length, body.bytesize
   #header 'Connection', 'close'
 
   c = RESPONSE[:status]
-  m = (WEBrick::HTTPStatus.reason_phrase(c) rescue nil)
+
+  m =
+    RESPONSE[:message] ||
+    (WEBrick::HTTPStatus.reason_phrase(c) rescue nil) ||
+    "Unknown Code #{c.inspect}"
+
   puts "Status: #{c} #{m}"
   RESPONSE[:headers].each do |k, v|
     puts "#{k}: #{v}"
     puts "x-#{k}: #{v}" if k == 'Content-Length'
   end
   puts "x-cgi: cigarillo #{CIG_VERSION}"
+  #puts "x-error: #{$!.inspect}" if $!
+  #puts "x-error-at: #{caller.inspect}" if $!
 
   puts
   print body
+end
 
-  exit 0
+def flush_error(err, trc)
+
+  RESPONSE[:status] = 500
+  RESPONSE[:message] = nil
+  RESPONSE[:headers] = {}
+
+  header :type, 'text/plain'
+
+  b = []
+  b << '500'
+  b << ''
+  b << err.inspect
+  b << ''
+  b.concat(trc)
+
+  RESPONSE[:body] = b
 end
 
 def halt(code, message=nil, &block)
 
-  message =
-    case message
-    when String then message
-    when nil then (WEBrick::HTTPStatus.reason_phrase(code) rescue nil)
-    else nil
-    end
-  message ||=
-    "Unknown code #{code.inspect}"
+  RESPONSE[:status] = code
+  RESPONSE[:message] = message
+  RESPONSE[:headers] = {}
 
-  body = (block ? block.call : '')
+  header :type, 'text/plain'
 
-  puts "Status: #{code} #{message}"
-  puts "Content-Type: text/plain"
-  puts "Content-Length: #{body.bytesize}"
-  puts "Connectionh: close"
-  puts
-  print body
+  RESPONSE[:body] = [ (block ? block.call : '') ]
 
   exit 0
 end
@@ -100,5 +115,12 @@ def fetch(fpath, max_age_s=24 * 3600, &block)
   File.open(fpath, 'wb') { |f| f.write(s) }
 
   s
+end
+
+at_exit do
+
+  flush
+
+  exit 0
 end
 
