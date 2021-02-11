@@ -84,6 +84,8 @@ end
 
 def flush_error(err, trc)
 
+  return if err.is_a?(SystemExit)
+
   RESPONSE[:status] = 500
   RESPONSE[:message] = nil
   RESPONSE[:headers] = {}
